@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Поезда семи территорий — расписание и навигатор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,680&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2E7C9;
+    --paper-deep:#E9D9AE;
+    --ink:#241C12;
+    --ink-soft:#6B5F49;
+    --line:#C9B384;
+    --purple:#7C5CBF;
+    --orange:#D9722E;
+    --green:#3F9153;
+    --blue:#2F7FB8;
+    --card:#FBF4E0;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1100px 500px at 15% -10%, #FBF0D2 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Manrope',sans-serif;
+    line-height:1.5;
+    padding-bottom:80px;
+  }
+  h1,h2,h3{
+    font-family:'Fraunces',serif;
+    font-weight:680;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px;}
+
+  /* ---------- hero ---------- */
+  header.hero{
+    padding:56px 20px 34px;
+    border-bottom:1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.25), transparent 40%);
+  }
+  header.hero .wrap{display:flex;flex-direction:column;gap:14px;}
+  .kicker{
+    font-size:14px;
+    color:var(--ink-soft);
+    max-width:44ch;
+  }
+  header.hero h1{
+    font-size:clamp(34px,7vw,52px);
+    line-height:1.02;
+  }
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 18px;
+    margin-top:6px;
+  }
+  .legend span{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    font-size:14px;
+    font-weight:600;
+  }
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block;flex:none;}
+
+  /* ---------- sections ---------- */
+  section{padding:38px 0;}
+  section > .wrap > h2{font-size:24px;margin-bottom:6px;}
+  .section-note{color:var(--ink-soft);font-size:14.5px;margin-bottom:20px;max-width:56ch;}
+
+  /* ---------- planner card ---------- */
+  .planner{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px;
+  }
+  .stations-row{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    gap:10px;
+    align-items:end;
+  }
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    text-transform:none;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  select, input[type=time]{
+    width:100%;
+    font-family:'Manrope',sans-serif;
+    font-size:15px;
+    font-weight:600;
+    color:var(--ink);
+    background:#fff;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    padding:11px 10px;
+    appearance:none;
+    -webkit-appearance:none;
+  }
+  select:focus, input:focus{outline:2px solid var(--blue);outline-offset:1px;}
+  .swap-btn{
+    width:38px;height:38px;
+    border-radius:50%;
+    border:1.5px solid var(--line);
+    background:#fff;
+    font-size:16px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--ink-soft);
+    transition:transform .15s ease, color .15s ease;
+  }
+  .swap-btn:hover{color:var(--ink); transform:rotate(180deg);}
+
+  .when-row{
+    display:grid;
+    grid-template-columns:1.3fr 1fr auto;
+    gap:10px;
+    margin-top:14px;
+  }
+  .now-btn{
+    background:none;
+    border:1.5px dashed var(--ink-soft);
+    border-radius:10px;
+    padding:0 14px;
+    font-family:'Manrope',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink-soft);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .now-btn:hover{border-color:var(--ink); color:var(--ink);}
+
+  .search-btn{
+    margin-top:16px;
+    width:100%;
+    padding:14px 16px;
+    border:none;
+    border-radius:10px;
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:15.5px;
+    cursor:pointer;
+    letter-spacing:0.01em;
+  }
+  .search-btn:hover{background:#3a2f1e;}
+
+  /* ---------- result ---------- */
+  #result{margin-top:22px;}
+  .result-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px;
+    animation:fadein .25s ease;
+  }
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+  .error-card{
+    background:#F5E6DC;
+    border:1px solid #DBB398;
+    color:#7A3A1E;
+    border-radius:var(--radius);
+    padding:18px 20px;
+    font-weight:600;
+    font-size:14.5px;
+  }
+  .leg{
+    border-left:4px solid var(--line);
+    padding:4px 0 4px 14px;
+    margin:14px 0;
+  }
+  .leg-head{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-weight:800;
+    font-size:15px;
+    margin-bottom:8px;
+  }
+  .leg-head .dot{width:13px;height:13px;}
+  .leg-stops{font-size:14.5px;}
+  .stop-line{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:5px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .stop-line:last-child{border-bottom:none;}
+  .stop-name{font-weight:600;}
+  .stop-time{color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .transfer-note{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    margin:10px 0 4px 14px;
+    font-style:italic;
+  }
+  .summary-row{
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px 18px;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+    font-size:13.5px;
+  }
+  .summary-row b{font-size:15px;}
+
+  /* ---------- map ---------- */
+  .map-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 6px 4px;
+  }
+  .map-scroll svg{display:block; min-width:720px;}
+  .map-legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-top:12px;
+  }
+  .map-legend span{display:inline-flex; align-items:center; gap:6px;}
+
+  /* ---------- timetable accordion ---------- */
+  .line-toggle{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    text-align:left;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:13px 16px;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:15px;
+    color:var(--ink);
+    cursor:pointer;
+    margin-bottom:8px;
+  }
+  .line-toggle .dot{width:12px;height:12px;}
+  .line-toggle .chev{margin-left:auto; color:var(--ink-soft); transition:transform .2s ease;}
+  .line-toggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
+  .line-panel{
+    display:none;
+    padding:4px 4px 18px;
+  }
+  .line-panel.open{display:block;}
+  table.tt{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+    margin:10px 0 16px;
+    background:#fff;
+    border-radius:8px;
+    overflow:hidden;
+  }
+  table.tt th, table.tt td{
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+    text-align:left;
+  }
+  table.tt th{
+    background:var(--paper-deep);
+    font-weight:700;
+  }
+  .tt-run-title{font-weight:700; margin:12px 0 2px; font-size:13.5px; color:var(--ink-soft);}
+  .tt-hint{font-size:13px; color:var(--ink-soft); margin-top:2px;}
+
+  footer{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:12.5px;
+    padding:30px 20px 0;
+  }
+
+  @media (max-width:480px){
+    .stations-row{grid-template-columns:1fr; }
+    .swap-btn{justify-self:center; transform:rotate(90deg);}
+    .swap-btn:hover{transform:rotate(270deg);}
+    .when-row{grid-template-columns:1fr 1fr; }
+    .now-btn{grid-column:1 / -1;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Временная механика «Поезд» — четыре ветки между территориями</div>
+    <h1>Расписание поездов</h1>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--purple)"></i>Фиолетовая</span>
+      <span><i class="dot" style="background:var(--orange)"></i>Оранжевая</span>
+      <span><i class="dot" style="background:var(--green)"></i>Зелёная</span>
+      <span><i class="dot" style="background:var(--blue)"></i>Синяя</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Найти рейс</h2>
+    <p class="section-note">Выберите станции отправления и назначения, день и время — и программа найдёт ближайший подходящий поезд, включая пересадку, если прямой ветки нет.</p>
+
+    <div class="planner">
+      <div class="stations-row">
+        <div class="field">
+          <label for="fromSel">Откуда</label>
+          <select id="fromSel"></select>
+        </div>
+        <button class="swap-btn" id="swapBtn" title="Поменять местами" aria-label="Поменять местами">⇆</button>
+        <div class="field">
+          <label for="toSel">Куда</label>
+          <select id="toSel"></select>
+        </div>
+      </div>
+
+      <div class="when-row">
+        <div class="field">
+          <label for="daySel">День</label>
+          <select id="daySel">
+            <option value="0">Понедельник</option>
+            <option value="1">Вторник</option>
+            <option value="2">Среда</option>
+            <option value="3">Четверг</option>
+            <option value="4">Пятница</option>
+            <option value="5">Суббота</option>
+            <option value="6">Воскресенье</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="timeSel">Время (МСК)</label>
+          <input type="time" id="timeSel" value="12:00">
+        </div>
+        <button class="now-btn" id="nowBtn">Сейчас</button>
+      </div>
+
+      <button class="search-btn" id="searchBtn">Найти ближайший рейс</button>
+    </div>
+
+    <div id="result"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Схема веток</h2>
+    <p class="section-note">Условная схема без масштаба. Станции с двумя цветами — пересадочные узлы между ветками.</p>
+    <div class="map-scroll">
+      <svg id="mapSvg" viewBox="0 0 1180 260" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="map-legend">
+      <span><i class="dot" style="background:var(--purple)"></i>Фиолетовая: Город — Горы — Посёлок — Предпустынье (озеро)</span>
+      <span><i class="dot" style="background:var(--green)"></i>Зелёная: Предпустынье (озеро) — Оазис — Центр лабиринта</span>
+      <span><i class="dot" style="background:var(--blue)"></i>Синяя: Центр лабиринта — Деревня — Предпустынье (море)</span>
+      <span><i class="dot" style="background:var(--orange)"></i>Оранжевая: Предпустынье (море) — Деревня — Руины</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Полное расписание по веткам</h2>
+    <p class="section-note">Время указано по МСК. Стоянка — время, в течение которого можно сесть или выйти на станции.</p>
+    <div id="accordion"></div>
+  </div>
+</section>
+
+<footer>Неофициальный навигатор по временной механике «Поезд». Составлено на основе внутриигрового расписания.</footer>
+
+<script>
+/* ======================= DATA ======================= */
+const LINES = {
+  purple: { name:'Фиолетовая', color:'var(--purple)', hex:'#7C5CBF', kind:'daily',
+    runs:[
+      { label:'Утреннее расписание', stops:[
+        {st:'Город', dep:[8,0]},
+        {st:'Горы', arr:[8,45], dep:[9,15]},
+        {st:'Посёлок', arr:[10,0], dep:[10,15]},
+        {st:'Предпустынье (озеро)', arr:[11,0], dep:[12,0]},
+        {st:'Посёлок', arr:[12,45], dep:[13,0]},
+        {st:'Горы', arr:[13,45], dep:[14,15]},
+        {st:'Город', arr:[15,0]},
+      ]},
+      { label:'Вечернее расписание', stops:[
+        {st:'Город', dep:[16,0]},
+        {st:'Горы', arr:[16,45], dep:[17,15]},
+        {st:'Посёлок', arr:[18,0], dep:[18,15]},
+        {st:'Предпустынье (озеро)', arr:[19,0], dep:[20,0]},
+        {st:'Посёлок', arr:[20,45], dep:[21,0]},
+        {st:'Горы', arr:[21,45], dep:[22,15]},
+        {st:'Город', arr:[23,0]},
+      ]},
+    ]
+  },
+  orange: { name:'Оранжевая', color:'var(--orange)', hex:'#D9722E', kind:'daily',
+    runs:[
+      { label:'Утреннее расписание', stops:[
+        {st:'Предпустынье (море)', dep:[8,0]},
+        {st:'Деревня', arr:[10,0], dep:[11,0]},
+        {st:'Руины', arr:[12,0], dep:[12,10]},
+        {st:'Деревня', arr:[13,10], dep:[14,10]},
+        {st:'Предпустынье (море)', arr:[16,10]},
+      ]},
+      { label:'Вечернее расписание', stops:[
+        {st:'Предпустынье (море)', dep:[17,0]},
+        {st:'Деревня', arr:[19,0], dep:[20,0]},
+        {st:'Руины', arr:[21,0], dep:[21,10]},
+        {st:'Деревня', arr:[22,10], dep:[23,10]},
+        {st:'Предпустынье (море)', arr:[25,10]},
+      ]},
+    ]
+  },
+  green: { name:'Зелёная', color:'var(--green)', hex:'#3F9153', kind:'weekly', cycleStartDays:[0,2,4],
+    stops:[
+      {st:'Предпустынье (озеро)', dep:[0,6,0]},
+      {st:'Оазис', arr:[0,8,0], dep:[0,9,0]},
+      {st:'Центр лабиринта', arr:[0,18,0], dep:[1,3,30]},
+      {st:'Оазис', arr:[1,12,30], dep:[1,13,30]},
+      {st:'Предпустынье (озеро)', arr:[1,15,30]},
+    ]
+  },
+  blue: { name:'Синяя', color:'var(--blue)', hex:'#2F7FB8', kind:'weekly', cycleStartDays:[0,2,4],
+    stops:[
+      {st:'Предпустынье (море)', dep:[0,6,0]},
+      {st:'Деревня', arr:[0,8,0], dep:[0,9,0]},
+      {st:'Центр лабиринта', arr:[0,18,0], dep:[1,3,30]},
+      {st:'Деревня', arr:[1,12,30], dep:[1,13,30]},
+      {st:'Предпустынье (море)', arr:[1,15,30]},
+    ]
+  }
+};
+
+const STATIONS = [
+  {name:'Город', lines:['purple']},
+  {name:'Горы', lines:['purple']},
+  {name:'Посёлок', lines:['purple']},
+  {name:'Предпустынье (озеро)', lines:['purple','green']},
+  {name:'Оазис', lines:['green']},
+  {name:'Центр лабиринта', lines:['green','blue']},
+  {name:'Деревня', lines:['orange','blue']},
+  {name:'Предпустынье (море)', lines:['orange','blue']},
+  {name:'Руины', lines:['orange']},
+];
+const TRANSFER_STATIONS = STATIONS.filter(s=>s.lines.length>1).map(s=>s.name);
+const DAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const DAY_NAMES_FULL = ['понедельник','вторник','среду','четверг','пятницу','субботу','воскресенье'];
+const WEEK_MIN = 10080;
+const WEEKS_TO_GENERATE = 3;
+
+/* ======================= BUILD RUNS ======================= */
+function genDaily(def){
+  const out=[];
+  for(let w=0; w<WEEKS_TO_GENERATE; w++){
+    for(let D=0; D<7; D++){
+      def.runs.forEach(run=>{
+        const stops = run.stops.map(s=>{
+          const o={st:s.st};
+          if(s.arr) o.arr = w*WEEK_MIN + D*1440 + s.arr[0]*60 + s.arr[1];
+          if(s.dep) o.dep = w*WEEK_MIN + D*1440 + s.dep[0]*60 + s.dep[1];
+          return o;
+        });
+        out.push(stops);
+      });
+    }
+  }
+  return out;
+}
+function genWeekly(def){
+  const out=[];
+  for(let w=0; w<WEEKS_TO_GENERATE; w++){
+    def.cycleStartDays.forEach(cs=>{
+      const stops = def.stops.map(s=>{
+        const o={st:s.st};
+        if(s.arr) o.arr = w*WEEK_MIN + (cs+s.arr[0])*1440 + s.arr[1]*60 + s.arr[2];
+        if(s.dep) o.dep = w*WEEK_MIN + (cs+s.dep[0])*1440 + s.dep[1]*60 + s.dep[2];
+        return o;
+      });
+      out.push(stops);
+    });
+  }
+  return out;
+}
+const ALL_RUNS = {};
+Object.keys(LINES).forEach(key=>{
+  const def = LINES[key];
+  ALL_RUNS[key] = def.kind==='daily' ? genDaily(def) : genWeekly(def);
+});
+
+/* ======================= SEARCH ======================= */
+function findDirect(originSt, destSt, targetMin){
+  let best=null;
+  Object.keys(ALL_RUNS).forEach(lineKey=>{
+    ALL_RUNS[lineKey].forEach(stops=>{
+      stops.forEach((s,i)=>{
+        if(s.st!==originSt || s.dep===undefined || s.dep<targetMin) return;
+        for(let j=i+1; j<stops.length; j++){
+          if(stops[j].st===destSt && stops[j].arr!==undefined){
+            const cand = { lineKey, dep:s.dep, arr:stops[j].arr, stops, fromIdx:i, toIdx:j };
+            if(!best || cand.dep<best.dep || (cand.dep===best.dep && cand.arr<best.arr)) best=cand;
+            break;
+          }
+        }
+      });
+    });
+  });
+  return best;
+}
+function findTransfer(originSt, destSt, targetMin){
+  let best=null;
+  TRANSFER_STATIONS.forEach(ts=>{
+    if(ts===originSt || ts===destSt) return;
+    const leg1 = findDirect(originSt, ts, targetMin);
+    if(!leg1) return;
+    const leg2 = findDirect(ts, destSt, leg1.arr);
+    if(!leg2) return;
+    if(!best || leg2.arr<best.leg2.arr) best = {ts, leg1, leg2};
+  });
+  return best;
+}
+function planRoute(originSt, destSt, targetMin){
+  if(originSt===destSt) return {error:'Выберите две разные станции.'};
+  const direct = findDirect(originSt, destSt, targetMin);
+  const transfer = findTransfer(originSt, destSt, targetMin);
+  if(direct && (!transfer || direct.arr<=transfer.leg2.arr)) return {type:'direct', direct};
+  if(transfer) return {type:'transfer', transfer};
+  return {error:'В ближайшие недели подходящего рейса между этими станциями не нашлось. Попробуйте другое время.'};
+}
+
+/* ======================= FORMAT HELPERS ======================= */
+function fmtAbs(min){
+  const totalDay = Math.floor(min/1440);
+  const dayOfWeek = ((totalDay%7)+7)%7;
+  const tod = min - totalDay*1440;
+  const hh = Math.floor(tod/60), mm = tod%60;
+  const weekIdx = Math.floor(min/WEEK_MIN);
+  return { day:DAY_NAMES[dayOfWeek], hh, mm, weekIdx,
+    str: DAY_NAMES[dayOfWeek]+' '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0') };
+}
+function fmtDur(mins){
+  const h = Math.floor(mins/60), m = mins%60;
+  if(h===0) return m+' мин';
+  if(m===0) return h+' ч';
+  return h+' ч '+m+' мин';
+}
+function fmtWait(mins){
+  if(mins<=0) return 'сразу';
+  return fmtDur(mins);
+}
+
+/* ======================= UI: selects ======================= */
+const fromSel = document.getElementById('fromSel');
+const toSel = document.getElementById('toSel');
+function lineLabel(keys){ return keys.map(k=>LINES[k].name).join(' / '); }
+[fromSel, toSel].forEach(sel=>{
+  STATIONS.forEach(s=>{
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name + '  ·  ' + lineLabel(s.lines);
+    sel.appendChild(opt);
+  });
+});
+toSel.selectedIndex = 3;
+
+document.getElementById('swapBtn').addEventListener('click', ()=>{
+  const a = fromSel.value;
+  fromSel.value = toSel.value;
+  toSel.value = a;
+});
+document.getElementById('nowBtn').addEventListener('click', ()=>{
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('ru-RU', {timeZone:'Europe/Moscow', weekday:'short', hour:'2-digit', minute:'2-digit', hour12:false}).formatToParts(now);
+  const map = Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  const wkMap = {'пн':0,'вт':1,'ср':2,'чт':3,'пт':4,'сб':5,'вс':6};
+  const short = (map.weekday||'').toLowerCase().replace('.','');
+  const dayIdx = wkMap[short] ?? 0;
+  document.getElementById('daySel').value = dayIdx;
+  document.getElementById('timeSel').value = map.hour+':'+map.minute;
+});
+
+/* ======================= RESULT RENDERING ======================= */
+function stopRow(name, time){
+  return '<div class="stop-line"><span class="stop-name">'+name+'</span><span class="stop-time">'+fmtAbs(time).str+'</span></div>';
+}
+function legHTML(cand, titlePrefix){
+  const def = LINES[cand.lineKey];
+  let rows='';
+  for(let i=cand.fromIdx; i<=cand.toIdx; i++){
+    const s = cand.stops[i];
+    const t = (i===cand.fromIdx) ? s.dep : (s.arr!==undefined ? s.arr : s.dep);
+    rows += stopRow(s.st, t);
+  }
+  return '<div class="leg">'+
+    '<div class="leg-head"><i class="dot" style="background:'+def.hex+'"></i>'+titlePrefix+def.name+' поезд</div>'+
+    '<div class="leg-stops">'+rows+'</div>'+
+    '</div>';
+}
+function renderResult(res, targetMin){
+  const box = document.getElementById('result');
+  if(res.error){
+    box.innerHTML = '<div class="error-card">'+res.error+'</div>';
+    return;
+  }
+  if(res.type==='direct'){
+    const c = res.direct;
+    const wait = c.dep - targetMin;
+    const dur = c.arr - c.dep;
+    box.innerHTML =
+      '<div class="result-card">'+
+        legHTML(c, '')+
+        '<div class="summary-row">'+
+          '<span>Отправление: <b>'+fmtAbs(c.dep).str+'</b></span>'+
+          '<span>Прибытие: <b>'+fmtAbs(c.arr).str+'</b></span>'+
+          '<span>В пути: <b>'+fmtDur(dur)+'</b></span>'+
+          '<span>Ожидание от указанного времени: <b>'+fmtWait(wait)+'</b></span>'+
+        '</div>'+
+      '</div>';
+    return;
+  }
+  if(res.type==='transfer'){
+    const {ts, leg1, leg2} = res.transfer;
+    const wait1 = leg1.dep - targetMin;
+    const transferWait = leg2.dep - leg1.arr;
+    const totalTrip = leg2.arr - leg1.dep;
+    box.innerHTML =
+      '<div class="result-card">'+
+        legHTML(leg1, '')+
+        '<div class="transfer-note">Пересадка на станции «'+ts+'» · ожидание пересадки: '+fmtWait(transferWait)+'</div>'+
+        legHTML(leg2, '')+
+        '<div class="summary-row">'+
+          '<span>Отправление: <b>'+fmtAbs(leg1.dep).str+'</b></span>'+
+          '<span>Прибытие: <b>'+fmtAbs(leg2.arr).str+'</b></span>'+
+          '<span>В пути всего: <b>'+fmtDur(totalTrip)+'</b></span>'+
+          '<span>Ожидание от указанного времени: <b>'+fmtWait(wait1)+'</b></span>'+
+        '</div>'+
+      '</div>';
+  }
+}
+document.getElementById('searchBtn').addEventListener('click', ()=>{
+  const from = fromSel.value, to = toSel.value;
+  const day = parseInt(document.getElementById('daySel').value,10);
+  const [hh,mm] = document.getElementById('timeSel').value.split(':').map(Number);
+  const targetMin = WEEK_MIN + day*1440 + hh*60 + mm; // week offset 1 so "next week" search never goes negative
+  const res = planRoute(from, to, targetMin);
+  renderResult(res, targetMin);
+  document.getElementById('result').scrollIntoView({behavior:'smooth', block:'nearest'});
+});
+
+/* ======================= MAP (SVG) ======================= */
+(function drawMap(){
+  const svg = document.getElementById('mapSvg');
+  const y = 130, spurY = 210;
+  const xs = { 'Город':40, 'Горы':190, 'Посёлок':340, 'Предпустынье (озеро)':500,
+    'Оазис':650, 'Центр лабиринта':800, 'Деревня':950, 'Предпустынье (море)':1130 };
+  const trunk = ['Город','Горы','Посёлок','Предпустынье (озеро)','Оазис','Центр лабиринта','Деревня','Предпустынье (море)'];
+  const segColor = {
+    'Город-Горы':'#7C5CBF','Горы-Посёлок':'#7C5CBF','Посёлок-Предпустынье (озеро)':'#7C5CBF',
+    'Предпустынье (озеро)-Оазис':'#3F9153','Оазис-Центр лабиринта':'#3F9153',
+    'Центр лабиринта-Деревня':'#2F7FB8'
+  };
+  let svgParts = '';
+
+  // trunk segments
+  for(let i=0;i<trunk.length-1;i++){
+    const a=trunk[i], b=trunk[i+1];
+    const key = a+'-'+b;
+    if(segColor[key]){
+      svgParts += `<line x1="${xs[a]}" y1="${y}" x2="${xs[b]}" y2="${y}" stroke="${segColor[key]}" stroke-width="7" stroke-linecap="round"/>`;
+    }
+  }
+  // Деревня - Предпустынье(море): both orange & blue, draw two parallel strokes
+  svgParts += `<line x1="${xs['Деревня']}" y1="${y-4}" x2="${xs['Предпустынье (море)']}" y2="${y-4}" stroke="#2F7FB8" stroke-width="6" stroke-linecap="round"/>`;
+  svgParts += `<line x1="${xs['Деревня']}" y1="${y+4}" x2="${xs['Предпустынье (море)']}" y2="${y+4}" stroke="#D9722E" stroke-width="6" stroke-linecap="round"/>`;
+  // spur: Деревня - Руины (orange)
+  svgParts += `<line x1="${xs['Деревня']}" y1="${y}" x2="${xs['Деревня']}" y2="${spurY}" stroke="#D9722E" stroke-width="7" stroke-linecap="round"/>`;
+
+  // station nodes
+  const interchange = ['Предпустынье (озеро)','Центр лабиринта','Деревня','Предпустынье (море)'];
+  trunk.forEach(name=>{
+    const r = interchange.includes(name) ? 11 : 8;
+    svgParts += `<circle cx="${xs[name]}" cy="${y}" r="${r}" fill="#FBF4E0" stroke="#241C12" stroke-width="2.5"/>`;
+    const above = (name==='Оазис' || name==='Центр лабиринта');
+    const labelY = above ? y-20 : y+28;
+    svgParts += `<text x="${xs[name]}" y="${labelY}" font-family="Manrope, sans-serif" font-size="13" font-weight="700" fill="#241C12" text-anchor="middle">${name.replace(' (',' \n(')}</text>`;
+  });
+  // Руины node
+  svgParts += `<circle cx="${xs['Деревня']}" cy="${spurY}" r="8" fill="#FBF4E0" stroke="#241C12" stroke-width="2.5"/>`;
+  svgParts += `<text x="${xs['Деревня']}" y="${spurY+22}" font-family="Manrope, sans-serif" font-size="13" font-weight="700" fill="#241C12" text-anchor="middle">Руины</text>`;
+
+  svg.innerHTML = svgParts;
+  // fix multi-line text (split on parenthesis) using tspans
+  svg.querySelectorAll('text').forEach(t=>{
+    if(t.textContent.includes('\n')){
+      const parts = t.textContent.split('\n');
+      const x = t.getAttribute('x'), y0 = t.getAttribute('y');
+      t.textContent='';
+      parts.forEach((p,idx)=>{
+        const tspan = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        tspan.setAttribute('x', x);
+        tspan.setAttribute('dy', idx===0? 0 : 14);
+        tspan.textContent = p;
+        t.appendChild(tspan);
+      });
+    }
+  });
+})();
+
+/* ======================= TIMETABLE ACCORDION ======================= */
+(function buildAccordion(){
+  const acc = document.getElementById('accordion');
+  Object.keys(LINES).forEach(key=>{
+    const def = LINES[key];
+    const btn = document.createElement('button');
+    btn.className='line-toggle';
+    btn.setAttribute('aria-expanded','false');
+    btn.innerHTML = '<i class="dot" style="background:'+def.hex+'"></i>'+def.name+' ветка<span class="chev">⌄</span>';
+    const panel = document.createElement('div');
+    panel.className='line-panel';
+
+    if(def.kind==='daily'){
+      def.runs.forEach(run=>{
+        panel.innerHTML += '<div class="tt-run-title">'+run.label+'</div>';
+        let rows = run.stops.map(s=>{
+          const arr = s.arr? String(s.arr[0]).padStart(2,'0')+':'+String(s.arr[1]).padStart(2,'0') : '—';
+          const dep = s.dep? String(s.dep[0]).padStart(2,'0')+':'+String(s.dep[1]).padStart(2,'0') : '—';
+          let stay='—';
+          if(s.arr && s.dep){
+            const m = (s.dep[0]*60+s.dep[1])-(s.arr[0]*60+s.arr[1]);
+            stay = fmtDur(m);
+          }
+          return `<tr><td>${s.st}</td><td>${arr}</td><td>${dep}</td><td>${stay}</td></tr>`;
+        }).join('');
+        panel.innerHTML += `<table class="tt"><thead><tr><th>Станция</th><th>Прибытие</th><th>Отправление</th><th>Стоянка</th></tr></thead><tbody>${rows}</tbody></table>`;
+      });
+      panel.innerHTML += '<div class="tt-hint">Поезд ходит ежедневно, утром и вечером. Расписание повторяется по кругу — после вечернего рейса до 06:00 покинуть поезд нельзя.</div>';
+    } else {
+      const dayNames3 = (arr)=>arr.map(d=>['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][d]).join(', ');
+      const rowsData = [
+        {st:def.stops[0].st, arr:'Вт, Чт, Сб: 15:30', dep:'Пн, Ср, Пт: 06:00', stay:'14 ч 30 мин / с Сб на Пн: 38 ч 30 мин'},
+        {st:def.stops[1].st, arr:'Пн, Ср, Пт: 08:00', dep:'Пн, Ср, Пт: 09:00', stay:'1 ч'},
+        {st:def.stops[2].st, arr:'Пн, Ср, Пт: 18:00', dep:'Вт, Чт, Сб: 03:30', stay:'9 ч 30 мин'},
+        {st:def.stops[3].st, arr:'Вт, Чт, Сб: 12:30', dep:'Вт, Чт, Сб: 13:30', stay:'1 ч'},
+      ];
+      let rows = rowsData.map(r=>`<tr><td>${r.st}</td><td>${r.arr}</td><td>${r.dep}</td><td>${r.stay}</td></tr>`).join('');
+      panel.innerHTML += `<table class="tt"><thead><tr><th>Станция</th><th>Прибытие</th><th>Отправление</th><th>Стоянка</th></tr></thead><tbody>${rows}</tbody></table>`;
+      panel.innerHTML += '<div class="tt-hint">Поезд ходит не каждый день: круг Пн→Вт, Ср→Чт, Пт→Сб. Между прибытием в субботу и отправлением в понедельник — длинная стоянка 38 ч 30 мин.</div>';
+    }
+
+    btn.addEventListener('click', ()=>{
+      const open = panel.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open? 'true':'false');
+    });
+    acc.appendChild(btn);
+    acc.appendChild(panel);
+  });
+})();
+
+/* run a default search on load for a nice first impression */
+document.getElementById('searchBtn').click();
+</script>
+</body>
+</html>
