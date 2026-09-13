@@ -530,25 +530,70 @@ function findDirect(originSt, destSt, targetMin){
   });
   return best;
 }
-function findTransfer(originSt, destSt, targetMin){
-  let best=null;
-  TRANSFER_STATIONS.forEach(ts=>{
-    if(ts===originSt || ts===destSt) return;
-    const leg1 = findDirect(originSt, ts, targetMin);
-    if(!leg1) return;
-    const leg2 = findDirect(ts, destSt, leg1.arr);
-    if(!leg2) return;
-    if(!best || leg2.arr<best.leg2.arr) best = {ts, leg1, leg2};
+
+/* Station-level graph: two stations are adjacent if they share a line
+   (so a single line's stations form a clique — one edge = one direct ride). */
+function buildStationGraph(){
+  const adj={};
+  STATIONS.forEach(s=>adj[s.name]=new Set());
+  STATIONS.forEach(a=>{
+    STATIONS.forEach(b=>{
+      if(a.name===b.name) return;
+      if(a.lines.some(l=>b.lines.includes(l))) adj[a.name].add(b.name);
+    });
   });
-  return best;
+  return adj;
 }
+const STATION_GRAPH = buildStationGraph();
+
+/* Find every shortest station-to-station path (fewest boardings) via BFS. */
+function allShortestPaths(origin, dest){
+  if(origin===dest) return [[origin]];
+  const dist = {}; dist[origin]=0;
+  const queue=[origin];
+  while(queue.length){
+    const cur = queue.shift();
+    STATION_GRAPH[cur].forEach(nb=>{
+      if(!(nb in dist)){ dist[nb]=dist[cur]+1; queue.push(nb); }
+    });
+  }
+  if(!(dest in dist)) return [];
+  const paths=[];
+  function dfs(node, path){
+    if(node===dest){ paths.push([...path, node]); return; }
+    STATION_GRAPH[node].forEach(nb=>{
+      if(dist[nb]===dist[node]+1) dfs(nb, [...path, node]);
+    });
+  }
+  dfs(origin, []);
+  return paths;
+}
+
+/* Chain direct rides along a station path, each leg starting no earlier
+   than the previous leg's arrival. */
+function evaluatePath(path, targetMin){
+  let curTime = targetMin;
+  const legs=[];
+  for(let i=0;i<path.length-1;i++){
+    const leg = findDirect(path[i], path[i+1], curTime);
+    if(!leg) return null;
+    legs.push(leg);
+    curTime = leg.arr;
+  }
+  return { path, legs, arr: curTime };
+}
+
 function planRoute(originSt, destSt, targetMin){
   if(originSt===destSt) return {error:'Выберите две разные станции.'};
-  const direct = findDirect(originSt, destSt, targetMin);
-  const transfer = findTransfer(originSt, destSt, targetMin);
-  if(direct && (!transfer || direct.arr<=transfer.leg2.arr)) return {type:'direct', direct};
-  if(transfer) return {type:'transfer', transfer};
-  return {error:'В ближайшие недели подходящего рейса между этими станциями не нашлось. Попробуйте другое время.'};
+  const paths = allShortestPaths(originSt, destSt);
+  if(!paths.length) return {error:'Между этими станциями нет маршрута по сети.'};
+  let best=null;
+  paths.forEach(p=>{
+    const ev = evaluatePath(p, targetMin);
+    if(ev && (!best || ev.arr<best.arr)) best = ev;
+  });
+  if(!best) return {error:'В ближайшие недели подходящего рейса между этими станциями не нашлось. Попробуйте другое время.'};
+  return {type:'route', route:best};
 }
 
 /* ======================= FORMAT HELPERS ======================= */
@@ -625,40 +670,30 @@ function renderResult(res, targetMin){
     box.innerHTML = '<div class="error-card">'+res.error+'</div>';
     return;
   }
-  if(res.type==='direct'){
-    const c = res.direct;
-    const wait = c.dep - targetMin;
-    const dur = c.arr - c.dep;
-    box.innerHTML =
-      '<div class="result-card">'+
-        legHTML(c, '')+
-        '<div class="summary-row">'+
-          '<span>Отправление: <b>'+fmtAbs(c.dep).str+'</b></span>'+
-          '<span>Прибытие: <b>'+fmtAbs(c.arr).str+'</b></span>'+
-          '<span>В пути: <b>'+fmtDur(dur)+'</b></span>'+
-          '<span>Ожидание от указанного времени: <b>'+fmtWait(wait)+'</b></span>'+
-        '</div>'+
-      '</div>';
-    return;
-  }
-  if(res.type==='transfer'){
-    const {ts, leg1, leg2} = res.transfer;
-    const wait1 = leg1.dep - targetMin;
-    const transferWait = leg2.dep - leg1.arr;
-    const totalTrip = leg2.arr - leg1.dep;
-    box.innerHTML =
-      '<div class="result-card">'+
-        legHTML(leg1, '')+
-        '<div class="transfer-note">Пересадка на станции «'+ts+'» · ожидание пересадки: '+fmtWait(transferWait)+'</div>'+
-        legHTML(leg2, '')+
-        '<div class="summary-row">'+
-          '<span>Отправление: <b>'+fmtAbs(leg1.dep).str+'</b></span>'+
-          '<span>Прибытие: <b>'+fmtAbs(leg2.arr).str+'</b></span>'+
-          '<span>В пути всего: <b>'+fmtDur(totalTrip)+'</b></span>'+
-          '<span>Ожидание от указанного времени: <b>'+fmtWait(wait1)+'</b></span>'+
-        '</div>'+
-      '</div>';
-  }
+  const { legs, arr } = res.route;
+  const wait = legs[0].dep - targetMin;
+  const totalTrip = arr - legs[0].dep;
+  const transfersCount = legs.length - 1;
+
+  let html = '<div class="result-card">';
+  legs.forEach((leg, idx)=>{
+    html += legHTML(leg, '');
+    if(idx < legs.length-1){
+      const transferWait = legs[idx+1].dep - leg.arr;
+      const stationName = leg.stops[leg.toIdx].st;
+      html += '<div class="transfer-note">Пересадка на станции «'+stationName+'» · ожидание пересадки: '+fmtWait(transferWait)+'</div>';
+    }
+  });
+  html +=
+    '<div class="summary-row">'+
+      '<span>Отправление: <b>'+fmtAbs(legs[0].dep).str+'</b></span>'+
+      '<span>Прибытие: <b>'+fmtAbs(arr).str+'</b></span>'+
+      '<span>В пути всего: <b>'+fmtDur(totalTrip)+'</b></span>'+
+      '<span>Пересадок: <b>'+transfersCount+'</b></span>'+
+      '<span>Ожидание от указанного времени: <b>'+fmtWait(wait)+'</b></span>'+
+    '</div>'+
+  '</div>';
+  box.innerHTML = html;
 }
 document.getElementById('searchBtn').addEventListener('click', ()=>{
   const from = fromSel.value, to = toSel.value;
