@@ -205,6 +205,18 @@
   .stop-line:last-child{border-bottom:none;}
   .stop-name{font-weight:600;}
   .stop-time{color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .stop-line.board{align-items:flex-start;}
+  .stop-line.board .stop-name{padding-top:2px;}
+  .time-chip-group{display:flex; flex-direction:column; align-items:flex-end; gap:3px;}
+  .time-chip{
+    font-size:12.5px;
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+    padding:2px 8px;
+    border-radius:20px;
+  }
+  .time-chip.arr{color:var(--ink-soft); background:var(--paper-deep);}
+  .time-chip.dep{color:var(--ink); background:#fff; border:1.3px solid var(--ink); font-weight:700;}
   .transfer-note{
     font-size:13.5px;
     color:var(--ink-soft);
@@ -398,7 +410,7 @@ const LINES = {
   purple: { name:'Фиолетовая', color:'var(--purple)', hex:'#7C5CBF', kind:'daily',
     runs:[
       { label:'Утреннее расписание', stops:[
-        {st:'Город', dep:[8,0]},
+        {st:'Город', arr:[6,0], dep:[8,0]},
         {st:'Горы', arr:[8,45], dep:[9,15]},
         {st:'Посёлок', arr:[10,0], dep:[10,15]},
         {st:'Предпустынье (озеро)', arr:[11,0], dep:[12,0]},
@@ -407,7 +419,7 @@ const LINES = {
         {st:'Город', arr:[15,0]},
       ]},
       { label:'Вечернее расписание', stops:[
-        {st:'Город', dep:[16,0]},
+        {st:'Город', arr:[15,0], dep:[16,0]},
         {st:'Горы', arr:[16,45], dep:[17,15]},
         {st:'Посёлок', arr:[18,0], dep:[18,15]},
         {st:'Предпустынье (озеро)', arr:[19,0], dep:[20,0]},
@@ -420,14 +432,14 @@ const LINES = {
   orange: { name:'Оранжевая', color:'var(--orange)', hex:'#D9722E', kind:'daily',
     runs:[
       { label:'Утреннее расписание', stops:[
-        {st:'Предпустынье (море)', dep:[8,0]},
+        {st:'Предпустынье (море)', arr:[6,0], dep:[8,0]},
         {st:'Деревня', arr:[10,0], dep:[11,0]},
         {st:'Руины', arr:[12,0], dep:[12,10]},
         {st:'Деревня', arr:[13,10], dep:[14,10]},
         {st:'Предпустынье (море)', arr:[16,10]},
       ]},
       { label:'Вечернее расписание', stops:[
-        {st:'Предпустынье (море)', dep:[17,0]},
+        {st:'Предпустынье (море)', arr:[16,10], dep:[17,0]},
         {st:'Деревня', arr:[19,0], dep:[20,0]},
         {st:'Руины', arr:[21,0], dep:[21,10]},
         {st:'Деревня', arr:[22,10], dep:[23,10]},
@@ -494,10 +506,16 @@ function genWeekly(def){
   const out=[];
   for(let w=0; w<WEEKS_TO_GENERATE; w++){
     def.cycleStartDays.forEach(cs=>{
-      const stops = def.stops.map(s=>{
+      const stops = def.stops.map((s,idx)=>{
         const o={st:s.st};
         if(s.arr) o.arr = w*WEEK_MIN + (cs+s.arr[0])*1440 + s.arr[1]*60 + s.arr[2];
         if(s.dep) o.dep = w*WEEK_MIN + (cs+s.dep[0])*1440 + s.dep[1]*60 + s.dep[2];
+        if(idx===0){
+          // первая станция цикла: поезд уже стоит здесь с прошлого прибытия —
+          // после Сб стоянка 38ч30м, в остальных случаях 14ч30м
+          const gapMin = (cs===0) ? (38*60+30) : (14*60+30);
+          o.arr = o.dep - gapMin;
+        }
         return o;
       });
       out.push(stops);
@@ -651,13 +669,25 @@ document.getElementById('nowBtn').addEventListener('click', ()=>{
 function stopRow(name, time){
   return '<div class="stop-line"><span class="stop-name">'+name+'</span><span class="stop-time">'+fmtAbs(time).str+'</span></div>';
 }
+function boardRow(name, arrT, depT){
+  const depHtml = '<span class="time-chip dep">отправление '+fmtAbs(depT).str+'</span>';
+  const arrHtml = (arrT!==undefined)
+    ? '<span class="time-chip arr">поезд на месте с '+fmtAbs(arrT).str+'</span>'
+    : '';
+  return '<div class="stop-line board"><span class="stop-name">'+name+'</span>'+
+    '<span class="time-chip-group">'+arrHtml+depHtml+'</span></div>';
+}
 function legHTML(cand, titlePrefix){
   const def = LINES[cand.lineKey];
   let rows='';
   for(let i=cand.fromIdx; i<=cand.toIdx; i++){
     const s = cand.stops[i];
-    const t = (i===cand.fromIdx) ? s.dep : (s.arr!==undefined ? s.arr : s.dep);
-    rows += stopRow(s.st, t);
+    if(i===cand.fromIdx){
+      rows += boardRow(s.st, s.arr, s.dep);
+    } else {
+      const t = s.arr!==undefined ? s.arr : s.dep;
+      rows += stopRow(s.st, t);
+    }
   }
   return '<div class="leg">'+
     '<div class="leg-head"><i class="dot" style="background:'+def.hex+'"></i>'+titlePrefix+def.name+' поезд</div>'+
